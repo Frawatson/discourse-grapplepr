@@ -96,22 +96,28 @@ class TopicsController < ApplicationController
   end
 
   def unsubscribe
-    @topic_view = TopicView.new(params[:topic_id], current_user)
+    topic = Topic.find(params[:topic_id].to_i)
 
-    if slugs_do_not_match || (!request.format.json? && params[:slug].blank?)
-      return redirect_to @topic_view.topic.unsubscribe_url, status: 301
+    if params[:slug] && params[:slug] != topic.slug
+      return redirect_to topic.unsubscribe_url, status: 301
     end
 
-    tu = TopicUser.find_or_initialize_by(user_id: current_user.id, topic_id: params[:topic_id])
+    if !request.format.json? && params[:slug].blank?
+      return redirect_to topic.unsubscribe_url, status: 301
+    end
 
-    if tu.notification_level && tu.notification_level > TopicUser.notification_levels[:regular]
-      tu.notification_level = TopicUser.notification_levels[:regular]
+    tu = TopicUser.find_by(user_id: current_user.id, topic_id: topic.id)
+    current_level = tu&.notification_level || TopicUser.notification_levels[:regular]
+
+    new_level = if current_level > TopicUser.notification_levels[:regular]
+      TopicUser.notification_levels[:regular]
     else
-      tu.notification_level = TopicUser.notification_levels[:muted]
+      TopicUser.notification_levels[:muted]
     end
 
-    tu.save!
+    TopicUser.change(current_user.id, topic.id, notification_level: new_level)
 
+    @topic_view = TopicView.new(topic.id, current_user)
     perform_show_response
   end
 
