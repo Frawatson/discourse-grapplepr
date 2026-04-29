@@ -63,11 +63,11 @@ class UploadsController < ApplicationController
       # allow users to upload large images that will be automatically reduced to allowed size
       if tempfile && tempfile.size > 0 && SiteSetting.max_image_size_kb > 0 && FileHelper.is_image?(filename)
         attempt = 5
-        while attempt > 0 && tempfile.size > SiteSetting.max_image_size_kb.kilobytes
-          previous_size = tempfile.size
+        while attempt > 0 && File.size(tempfile.path) > SiteSetting.max_image_size_kb.kilobytes
+          previous_size = File.size(tempfile.path)
           success = OptimizedImage.downsize(tempfile.path, tempfile.path, "80%", allow_animation: SiteSetting.allow_animated_thumbnails)
           # break if downsize failed or file size did not decrease (no progress possible)
-          break unless success && tempfile.size < previous_size
+          break unless success && File.size(tempfile.path) < previous_size
           attempt -= 1
         end
       end
