@@ -64,7 +64,10 @@ class UploadsController < ApplicationController
       if tempfile && tempfile.size > 0 && SiteSetting.max_image_size_kb > 0 && FileHelper.is_image?(filename)
         attempt = 5
         while attempt > 0 && tempfile.size > SiteSetting.max_image_size_kb.kilobytes
-          OptimizedImage.downsize(tempfile.path, tempfile.path, "80%", allow_animation: SiteSetting.allow_animated_thumbnails)
+          previous_size = tempfile.size
+          success = OptimizedImage.downsize(tempfile.path, tempfile.path, "80%", allow_animation: SiteSetting.allow_animated_thumbnails)
+          # break if downsize failed or file size did not decrease (no progress possible)
+          break unless success && tempfile.size < previous_size
           attempt -= 1
         end
       end
