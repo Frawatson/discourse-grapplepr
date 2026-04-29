@@ -717,7 +717,7 @@ class Topic < ActiveRecord::Base
   end
 
   def unsubscribe_url
-    "#{url}/unsubscribe"
+    "#{Discourse.base_url}#{relative_url}/unsubscribe"
   end
 
   def clear_pin_for(user)

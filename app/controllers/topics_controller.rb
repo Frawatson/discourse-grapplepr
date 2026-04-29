@@ -102,9 +102,9 @@ class TopicsController < ApplicationController
       return redirect_to @topic_view.topic.unsubscribe_url, status: 301
     end
 
-    tu = TopicUser.find_by(user_id: current_user.id, topic_id: params[:topic_id])
+    tu = TopicUser.find_or_initialize_by(user_id: current_user.id, topic_id: params[:topic_id])
 
-    if tu.notification_level > TopicUser.notification_levels[:regular]
+    if tu.notification_level && tu.notification_level > TopicUser.notification_levels[:regular]
       tu.notification_level = TopicUser.notification_levels[:regular]
     else
       tu.notification_level = TopicUser.notification_levels[:muted]

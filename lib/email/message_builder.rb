@@ -64,7 +64,8 @@ module Email
           html_override.gsub!("%{respond_instructions}", respond_instructions)
         end
 
-        unsubscribe_link = PrettyText.cook(I18n.t('unsubscribe_link', template_args)).html_safe
+        unsubscribe_url = @template_args[:unsubscribe_url] || "#{Discourse.base_url}/my/preferences"
+        unsubscribe_link = PrettyText.cook(I18n.t('unsubscribe_link', @template_args.merge(unsubscribe_url: unsubscribe_url))).html_safe
         html_override.gsub!("%{unsubscribe_link}", unsubscribe_link)
       end
 
