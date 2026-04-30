@@ -142,9 +142,21 @@ class OptimizedImage < ActiveRecord::Base
     optimize("resize", from, to, "#{width}x#{height}", opts)
   end
 
-  def self.downsize(from, to, dimensions, opts={})
-    dimensions = "#{dimensions}x#{opts.delete(:max_height)}" if dimensions.is_a?(Integer)
+  def self.downsize(from, to, dimensions, max_height_or_opts=nil, opts={})
+    # Support old 5-arg signature: downsize(from, to, max_width, max_height, opts={})
+    if max_height_or_opts.is_a?(Integer)
+      dimensions = "#{dimensions}x#{max_height_or_opts}"
+    elsif max_height_or_opts.is_a?(Hash)
+      opts = max_height_or_opts
+      dimensions = "#{dimensions}x#{opts.delete(:max_height)}" if dimensions.is_a?(Integer)
+    elsif max_height_or_opts.nil?
+      dimensions = "#{dimensions}x#{opts.delete(:max_height)}" if dimensions.is_a?(Integer)
+    end
     optimize("downsize", from, to, dimensions, opts)
+  end
+
+  def self.dimensions(width, height)
+    "#{width}x#{height}"
   end
 
   def self.optimize(operation, from, to, dimensions, opts={})
