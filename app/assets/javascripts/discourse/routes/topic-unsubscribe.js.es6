@@ -1,12 +1,6 @@
-import PostStream from "discourse/models/post-stream";
-
 export default Discourse.Route.extend({
   model(params) {
-    const topic = this.store.createRecord("topic", { id: params.id });
-    return PostStream.loadTopicView(params.id).then(json => {
-      topic.updateFromJson(json);
-      return topic;
-    });
+    return this.store.find("topic", params.id);
   },
 
   afterModel(topic) {

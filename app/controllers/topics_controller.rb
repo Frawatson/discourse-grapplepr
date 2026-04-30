@@ -106,16 +106,24 @@ class TopicsController < ApplicationController
       return redirect_to topic.unsubscribe_url, status: 301
     end
 
+    # Require authentication — current_user may be nil for unauthenticated email link clicks
+    unless current_user
+      return redirect_to "/login?redirect=#{CGI.escape(request.fullpath)}"
+    end
+
     tu = TopicUser.find_by(user_id: current_user.id, topic_id: topic.id)
     current_level = tu&.notification_level || TopicUser.notification_levels[:regular]
 
-    new_level = if current_level > TopicUser.notification_levels[:regular]
-      TopicUser.notification_levels[:regular]
-    else
-      TopicUser.notification_levels[:muted]
-    end
+    # Only mutate on an explicit POST confirmation to preserve GET idempotency (RFC 7231)
+    if request.post?
+      new_level = if current_level > TopicUser.notification_levels[:regular]
+        TopicUser.notification_levels[:regular]
+      else
+        TopicUser.notification_levels[:muted]
+      end
 
-    TopicUser.change(current_user.id, topic.id, notification_level: new_level)
+      TopicUser.change(current_user.id, topic.id, notification_level: new_level)
+    end
 
     @topic_view = TopicView.new(topic.id, current_user)
     perform_show_response
