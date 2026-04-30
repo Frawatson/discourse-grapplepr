@@ -24,11 +24,12 @@ class TopicsController < ApplicationController
                                           :bulk,
                                           :reset_new,
                                           :change_post_owners,
-                                          :bookmark]
+                                          :bookmark,
+                                          :unsubscribe]
 
   before_filter :consider_user_for_promotion, only: :show
 
-  skip_before_filter :check_xhr, only: [:show, :feed]
+  skip_before_filter :check_xhr, only: [:show, :unsubscribe, :feed]
 
   def id_for_slug
     topic = Topic.find_by(slug: params[:slug].downcase)
@@ -92,6 +93,40 @@ class TopicsController < ApplicationController
     end
 
     raise ex
+  end
+
+  def unsubscribe
+    topic = Topic.find(params[:topic_id].to_i)
+
+    if params[:slug] && params[:slug] != topic.slug
+      return redirect_to topic.unsubscribe_url, status: 301
+    end
+
+    if !request.format.json? && params[:slug].blank?
+      return redirect_to topic.unsubscribe_url, status: 301
+    end
+
+    # Require authentication — current_user may be nil for unauthenticated email link clicks
+    unless current_user
+      return redirect_to "/login?redirect=#{CGI.escape(request.fullpath)}"
+    end
+
+    tu = TopicUser.find_by(user_id: current_user.id, topic_id: topic.id)
+    current_level = tu&.notification_level || TopicUser.notification_levels[:regular]
+
+    # Only mutate on an explicit POST confirmation to preserve GET idempotency (RFC 7231)
+    if request.post?
+      new_level = if current_level > TopicUser.notification_levels[:regular]
+        TopicUser.notification_levels[:regular]
+      else
+        TopicUser.notification_levels[:muted]
+      end
+
+      TopicUser.change(current_user.id, topic.id, notification_level: new_level)
+    end
+
+    @topic_view = TopicView.new(topic.id, current_user)
+    perform_show_response
   end
 
   def wordpress
@@ -476,6 +511,7 @@ class TopicsController < ApplicationController
       format.html do
         @description_meta = @topic_view.topic.excerpt
         store_preloaded("topic_#{@topic_view.topic.id}", MultiJson.dump(topic_view_serializer))
+        render :show
       end
 
       format.json do
