@@ -52,7 +52,7 @@ class UploadsController < ApplicationController
     begin
       # API can provide a URL
       if file.nil? && url.present? && is_api?
-        tempfile = FileHelper.download(url, SiteSetting.max_image_size_kb.kilobytes, "discourse-upload-#{type}") rescue nil
+        tempfile = FileHelper.download(url, 10.megabytes, "discourse-upload-#{type}") rescue nil
         filename = File.basename(URI.parse(url).path)
       else
         tempfile = file.tempfile
@@ -60,7 +60,21 @@ class UploadsController < ApplicationController
         content_type = file.content_type
       end
 
-      upload = Upload.create_for(current_user.id, tempfile, filename, tempfile.size, content_type: content_type, image_type: type)
+      # allow users to upload large images that will be automatically reduced to allowed size
+      if tempfile && tempfile.size > 0 && SiteSetting.max_image_size_kb > 0 && FileHelper.is_image?(filename)
+        attempt = 5
+        current_size = File.size(tempfile.path)
+        while attempt > 0 && current_size > SiteSetting.max_image_size_kb.kilobytes
+          previous_size = current_size
+          success = OptimizedImage.downsize(tempfile.path, tempfile.path, "80%", allow_animation: SiteSetting.allow_animated_thumbnails)
+          current_size = File.size(tempfile.path)
+          # break if downsize failed or file size did not decrease (no progress possible)
+          break unless success && current_size < previous_size
+          attempt -= 1
+        end
+      end
+
+      upload = Upload.create_for(current_user.id, tempfile, filename, File.size(tempfile.path), content_type: content_type, image_type: type)
 
       if upload.errors.empty? && current_user.admin?
         retain_hours = params[:retain_hours].to_i
